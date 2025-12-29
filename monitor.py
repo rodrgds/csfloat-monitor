@@ -3,7 +3,16 @@ import time
 import random
 from python_ntfy import NtfyClient
 
-from config import build_headers, BASE_INTERVAL, JITTER_RANGE, MIN_DISCOUNT_PERCENT, LONG_DELAY_INTERVAL, NTFY_TOPIC, logger
+from config import (
+    build_headers, 
+    BASE_INTERVAL, 
+    JITTER_RANGE, 
+    MIN_DISCOUNT_PERCENT, 
+    LONG_DELAY_INTERVAL, 
+    NTFY_TOPIC, 
+    NTFY_SERVER,
+    logger
+)
 from api import fetch_listings
 from database import init_db, is_seen, is_notified, mark_as_seen, mark_as_notified, cleanup_old_items
 
@@ -17,7 +26,7 @@ def monitor_listings():
     
     # Adaptive state
     current_limit = 30
-    ntfy_client = NtfyClient(topic=NTFY_TOPIC)
+    ntfy_client = NtfyClient(topic=NTFY_TOPIC, server=NTFY_SERVER)
     
     with httpx.Client(http2=True, headers=build_headers(), timeout=15.0) as client:
         while True:

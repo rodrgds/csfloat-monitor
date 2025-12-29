@@ -13,7 +13,8 @@ BASE_INTERVAL = 10.0
 JITTER_RANGE = 2.0
 LONG_DELAY_INTERVAL = 30.0
 USER_AGENT = "CSFloatMonitor/2.0 (Personal Project; +https://github.com/rodrgds)"
-NTFY_TOPIC = "kraktoos-csfloat-monitor"
+NTFY_TOPIC = os.getenv("NTFY_TOPIC", "csfloat-monitor")
+NTFY_SERVER = os.getenv("NTFY_SERVER", "https://ntfy.sh")
 
 logging.basicConfig(
     level=logging.INFO,
