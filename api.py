@@ -6,19 +6,17 @@ from models import Listing
 from config import logger
 
 
-def fetch_listings(client, params) -> Tuple[List[Listing], int]:
+def fetch_listings(client, params) -> Tuple[List[Listing], int, int, int]:
     url = "https://csfloat.com/api/v1/listings"
     response = client.get(url, params=params)
     remaining = int(response.headers.get('X-RateLimit-Remaining', 50))
     if response.status_code == 429:
         reset_time = int(response.headers.get('X-RateLimit-Reset', 30))
-        logger.warning(f"⛔ Rate Limit Hit! Sleeping {reset_time}s")
-        time.sleep(reset_time + 1)
-        return [], remaining
+        logger.warning(f"⛔ Rate Limit Hit! Cooldown {reset_time}s")
+        return [], remaining, 429, reset_time
     if response.status_code != 200:
         logger.error(f"API Error {response.status_code}: {response.text}")
-        time.sleep(10)
-        return [], remaining
+        return [], remaining, response.status_code, 0
     json_resp = response.json()
     raw_list = []
     if isinstance(json_resp, dict):
@@ -29,6 +27,5 @@ def fetch_listings(client, params) -> Tuple[List[Listing], int]:
         listings = [Listing(**item) for item in raw_list]
     except ValidationError as e:
         logger.error(f"Validation Error: {e}")
-        time.sleep(5)
-        return [], remaining
-    return listings, remaining
+        return [], remaining, 500, 0
+    return listings, remaining, 200, 0

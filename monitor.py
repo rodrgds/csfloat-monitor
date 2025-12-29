@@ -12,6 +12,7 @@ from config import (
     NTFY_TOPIC, 
     NTFY_SERVER,
     PROXY_URL,
+    HARD_MIN_INTERVAL,
     logger
 )
 from api import fetch_listings
@@ -25,10 +26,10 @@ def monitor_listings():
     last_seen_ids = set()
     last_cleanup = time.time()
     
-    # Adaptive state
     current_limit = 30
     sleep_time = BASE_INTERVAL
     consecutive_empty_overlaps = 0
+    cooldown_until = 0
     ntfy_client = NtfyClient(topic=NTFY_TOPIC, server=NTFY_SERVER)
     
     with httpx.Client(
@@ -39,9 +40,11 @@ def monitor_listings():
     ) as client:
         while True:
             try:
-                # --- OPTIMIZATION 1: Jitter is good, but keep limit robust ---
-                # We prioritize a safe limit (min 25) to catch bursts even if we sleep longer.
-                effective_limit = max(25, min(50, current_limit + random.randint(-1, 3)))
+                now = time.time()
+                if now < cooldown_until:
+                    time.sleep(cooldown_until - now)
+                    continue
+                effective_limit = min(30, max(25, current_limit))
                 
                 params = {
                     "sort_by": "most_recent",
@@ -50,7 +53,12 @@ def monitor_listings():
                     "min_price": 500,
                 }
                 
-                listings, remaining = fetch_listings(client, params)
+                listings, remaining, status, reset_time = fetch_listings(client, params)
+
+                if status == 429:
+                    cooldown_until = time.time() + max(120, reset_time * 2)
+                    sleep_time = BASE_INTERVAL
+                    continue
                 
                 # Count NEW items vs REPEATS
                 new_items_count = 0
@@ -132,53 +140,16 @@ def monitor_listings():
                     # Keep the newest 1000 IDs (approximate by list conversion)
                     last_seen_ids = set(list(last_seen_ids)[-1000:])
 
-                # --- OPTIMIZATION 2: The "Elastic Buffer" Logic ---
-                # Ideally, we want to see roughly 3-5 repeats.
                 target_overlap = 4
-                
-                if overlaps_found == 0 and len(listings) > 0:
-                    # DANGER: We missed the connection to previous fetch!
-                    consecutive_empty_overlaps += 1
-                    logger.warning(f"⚠️ CHAIN BROKEN ({consecutive_empty_overlaps}x): 0 repeats found. Potential miss!")
-                    
-                    # REACTION: Panic mode. Max limit, Min sleep.
-                    current_limit = 50
-                    sleep_time = BASE_INTERVAL * 0.5
+                if overlaps_found > (target_overlap * 3):
+                    logger.info(f"🐢 Slow Market (Overlap {overlaps_found}): Sleeping longer.")
+                    sleep_time = min(60.0, sleep_time * 1.2)
+                elif new_items_count > 5:
+                    sleep_time = min(60.0, sleep_time * 1.2)
                 else:
-                    consecutive_empty_overlaps = 0
-                    
-                    if new_items_count > 10:
-                        # 🔥 BURST: Market is flooding
-                        logger.info(f"� High Velocity ({new_items_count} new): Speeding up!")
-                        current_limit = min(50, current_limit + 5)
-                        sleep_time = BASE_INTERVAL
-                        
-                    elif overlaps_found < target_overlap:
-                        # ⚡ FAST: We are barely keeping up (overlap is too thin)
-                        logger.info(f"⚡ Fast Market (Overlap {overlaps_found}/{target_overlap}): Widening net.")
-                        current_limit = min(45, current_limit + 2)
-                        sleep_time = max(BASE_INTERVAL, sleep_time * 0.9)
-                        
-                    elif overlaps_found > (target_overlap * 3):
-                        # 🐢 SLOW: We are fetching way too many duplicates (e.g. 20 repeats)
-                        logger.info(f"🐢 Slow Market (Overlap {overlaps_found}): Sleeping longer.")
-                        current_limit = max(25, current_limit - 1) 
-                        sleep_time = min(45.0, sleep_time * 1.2) 
-                        
-                    else:
-                        logger.info(f"⚖️ Optimized State ({new_items_count} new, {overlaps_found} safe): Maintaining.")
-                        if current_limit > 30: current_limit -= 1
-                        if current_limit < 30: current_limit += 1
+                    sleep_time = BASE_INTERVAL
 
-                # --- OPTIMIZATION 3: Rate Limit Protection ---
-                if remaining < 5:
-                    logger.critical("🛑 Rate limit critical! Engaging emergency brakes.")
-                    sleep_time = 60.0
-                elif remaining < 20:
-                    logger.warning(f"⚠️ Rate limit low ({remaining}). Adding delay.")
-                    sleep_time = max(sleep_time, 15.0)
-
-                final_sleep = sleep_time + random.uniform(0.5, 2.0)
+                final_sleep = max(HARD_MIN_INTERVAL, sleep_time) + random.uniform(0.5, 2.0)
                 
                 # Periodic database cleanup (once every 24 hours)
                 if time.time() - last_cleanup > 86400:
