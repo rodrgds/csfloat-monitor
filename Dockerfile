@@ -18,5 +18,5 @@ COPY *.py .
 RUN mkdir -p /app/data
 VOLUME /app/data
 
-# Run safely
-CMD ["python", "monitor.py"]
+# Run safely (and wait a bit for the database to be initialized)
+CMD ["sh", "-c", "sleep 5 && python monitor.py"]

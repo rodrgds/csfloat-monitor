@@ -1,0 +1,34 @@
+version: "3.8"
+services:
+  ts-gateway:
+    image: tailscale/tailscale:latest
+    container_name: ts-csfloat-net
+    hostname: csfloat-vps-exit
+    environment:
+      # Use the exact variables from your .env
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_EXTRA_ARGS=--exit-node=${HOME_EXIT_NODE_IP} --exit-node-allow-lan-access=false
+      - TS_STATEFUL_CONFIG=true
+    volumes:
+      - ts-state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    restart: unless-stopped
+
+  csfloat-monitor:
+    build: .
+    depends_on:
+      - ts-gateway
+    network_mode: "service:ts-gateway"
+    environment:
+      - CSFLOAT_API_KEY=${CSFLOAT_API_KEY}
+      - NTFY_SERVER=${NTFY_SERVER}
+      - NTFY_TOPIC=${NTFY_TOPIC}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+volumes:
+  ts-state:
