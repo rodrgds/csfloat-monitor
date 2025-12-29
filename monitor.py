@@ -8,6 +8,7 @@ from config import (
     BASE_INTERVAL, 
     JITTER_RANGE, 
     MIN_DISCOUNT_PERCENT, 
+    MIN_DISCOUNT_ABS,
     LONG_DELAY_INTERVAL, 
     NTFY_TOPIC, 
     NTFY_SERVER,
@@ -89,13 +90,20 @@ def monitor_listings():
                         continue
 
                     ref_price_usd = ref_price_cents / 100.0
-                    target_price = ref_price_usd * (1.0 - MIN_DISCOUNT_PERCENT)
-                    if listing.price_usd <= target_price:
+                    percent_target = ref_price_usd * (1.0 - MIN_DISCOUNT_PERCENT)
+                    abs_target = max(0.0, ref_price_usd - MIN_DISCOUNT_ABS)
+                    matched = None
+                    if listing.price_usd <= percent_target:
+                        matched = "percent"
+                    elif listing.price_usd <= abs_target:
+                        matched = "absolute"
+                    if matched:
                         # Check if we already notified for this listing
                         if is_notified(listing.id):
                             continue
                             
                         discount_percent = ((ref_price_usd - listing.price_usd) / ref_price_usd) * 100
+                        abs_discount = max(0.0, ref_price_usd - listing.price_usd)
                         
                         logger.info("🚨 DEAL FOUND 🚨")
                         logger.info(f"Item: {listing.item.market_hash_name}")
@@ -113,7 +121,8 @@ def monitor_listings():
                             market_name = listing.item.market_hash_name
                             message = (
                                 f"Price: ${listing.price_usd:.2f} (Ref: ${ref_price_usd:.2f})\n"
-                                f"Discount: {discount_percent:.2f}%\n"
+                                f"Discount: {discount_percent:.2f}% | Abs: ${abs_discount:.2f}\n"
+                                f"Targets → %: ${percent_target:.2f}, Abs: ${abs_target:.2f} | Matched: {matched}\n"
                                 f"Float: {listing.item.float_value or 'N/A'}"
                             )
                             
