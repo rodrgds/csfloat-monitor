@@ -11,6 +11,7 @@ from config import (
     LONG_DELAY_INTERVAL, 
     NTFY_TOPIC, 
     NTFY_SERVER,
+    PROXY_URL,
     logger
 )
 from api import fetch_listings
@@ -30,7 +31,12 @@ def monitor_listings():
     consecutive_empty_overlaps = 0
     ntfy_client = NtfyClient(topic=NTFY_TOPIC, server=NTFY_SERVER)
     
-    with httpx.Client(http2=True, headers=build_headers(), timeout=15.0) as client:
+    with httpx.Client(
+        http2=True, 
+        headers=build_headers(), 
+        timeout=15.0,
+        proxy=PROXY_URL
+    ) as client:
         while True:
             try:
                 # --- OPTIMIZATION 1: Jitter is good, but keep limit robust ---
