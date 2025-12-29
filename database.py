@@ -1,7 +1,12 @@
 import sqlite3
+import os
 from datetime import datetime, timedelta
 
-DB_PATH = "listings.db"
+DATA_DIR = "data"
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
+DB_PATH = os.path.join(DATA_DIR, "listings.db")
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:

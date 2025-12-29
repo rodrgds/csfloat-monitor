@@ -14,5 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy Python modules
 COPY *.py .
 
+# Create data directory and define it as a volume for persistence
+RUN mkdir -p /app/data
+VOLUME /app/data
+
 # Run safely
 CMD ["python", "monitor.py"]

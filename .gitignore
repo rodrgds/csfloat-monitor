@@ -40,3 +40,4 @@ ENV/
 
 # Database
 listings.db
+data/
