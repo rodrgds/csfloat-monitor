@@ -143,13 +143,14 @@ def monitor_listings():
                 target_overlap = 4
                 if overlaps_found > (target_overlap * 3):
                     logger.info(f"🐢 Slow Market (Overlap {overlaps_found}): Sleeping longer.")
-                    sleep_time = min(60.0, sleep_time * 1.2)
+                    sleep_time = min(LONG_DELAY_INTERVAL, max(BASE_INTERVAL, sleep_time * 1.1))
                 elif new_items_count > 5:
-                    sleep_time = min(60.0, sleep_time * 1.2)
+                    sleep_time = min(LONG_DELAY_INTERVAL, max(BASE_INTERVAL, sleep_time * 1.2))
                 else:
-                    sleep_time = BASE_INTERVAL
+                    sleep_time = max(BASE_INTERVAL, sleep_time * 0.95)
 
                 final_sleep = max(HARD_MIN_INTERVAL, sleep_time) + random.uniform(0.5, 2.0)
+                logger.info(f"Overlap {overlaps_found}/{target_overlap} | Next sleep {final_sleep:.2f}s")
                 
                 # Periodic database cleanup (once every 24 hours)
                 if time.time() - last_cleanup > 86400:
