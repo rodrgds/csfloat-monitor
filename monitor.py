@@ -10,7 +10,7 @@ def monitor_listings():
     headers = build_headers()
     params = {
         "sort_by": "most_recent",
-        "limit": 30,
+        "limit": random.randint(45, 50),
         "type": "buy_now",
         "min_price": 500,
     }
