@@ -11,8 +11,9 @@ except ImportError:
 MIN_DISCOUNT_PERCENT = 0.10
 BASE_INTERVAL = 10.0
 JITTER_RANGE = 2.0
-LONG_DELAY_INTERVAL = 30.0  # Larger delay when rate limit is low
+LONG_DELAY_INTERVAL = 30.0
 USER_AGENT = "CSFloatMonitor/2.0 (Personal Project; +https://github.com/rodrgds)"
+NTFY_TOPIC = "kraktoos-csfloat-monitor"
 
 logging.basicConfig(
     level=logging.INFO,
